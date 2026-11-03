@@ -80,7 +80,7 @@ const { css, html } = renderBadgeWall(payload)
 
 ```html
 <div data-prolaunch-badge-wall="YOUR_WEBSITE_ID"></div>
-<script src="https://prolaunch.net/badge-wall/v1.js" async></script>
+<script src="https://prolaunch.net/badge-wall/badges.js" async></script>
 ```
 
 Or use `<prolaunch-badge-wall website-id="YOUR_WEBSITE_ID"></prolaunch-badge-wall>` after calling `defineBadgeWallElement()`.
