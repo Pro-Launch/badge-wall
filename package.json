@@ -1,0 +1,54 @@
+{
+  "name": "@prolaunch/badge-wall",
+  "version": "1.0.0",
+  "description": "Pro Launch badge wall: show your 'Featured on' directory badges in your site footer.",
+  "keywords": ["prolaunch", "badges", "badge-wall", "nextjs", "react", "footer"],
+  "homepage": "https://prolaunch.net/badges",
+  "license": "MIT",
+  "author": "Pro Launch (https://prolaunch.net)",
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/react.tsx src/server.ts --format esm,cjs --dts --clean --out-dir dist",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  }
+}
