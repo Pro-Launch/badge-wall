@@ -6,12 +6,12 @@ import type { BadgeWallPayload, BadgeWallPayloadBadge, BadgeWallThemeName } from
 // The CSS is written for a shadow root (:host) and every class is namespaced "bw-", so it can
 // neither leak into nor be broken by the host page. The iframe document uses the same CSS.
 //
-// The Fixed template mirrors the "Featured On" block of Pro Launch's own footer
+// Both templates scroll like the "Featured On" block of Pro Launch's own footer
 // (components/layout/featured-badges.tsx): uppercase muted heading, 40px-tall badges, 32px gaps
-// (48px from 768px), a 60s linear marquee that pauses on hover, with a duplicated aria-hidden
-// set for a seamless loop. It starts as a static centered wrapping row; the marquee runtime
-// (marquee.ts) switches it to scrolling only when the badges overflow one row and the visitor
-// has not asked for reduced motion.
+// (48px from 768px), a linear single-row marquee that pauses on hover, with a duplicated
+// aria-hidden set for a seamless loop. Like the footer it always scrolls (no reduced-motion
+// fallback). Short walls repeat their badges so one set is always wider than the viewport, and
+// the duration scales with the number of badges so every wall moves at the footer's speed.
 
 export function escapeHtml(value: string): string {
   return value
@@ -76,12 +76,16 @@ export const BADGE_WALL_CSS = `
   letter-spacing: 0.05em; text-transform: uppercase;
 }
 .bw-viewport { width: 100%; overflow: hidden; margin: 0; padding: 0; }
-.bw-track { display: block; margin: 0 auto; }
-.bw-set {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 32px;
-  margin: 0; padding: 0; list-style: none;
+@keyframes bw-marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+.bw-track {
+  display: flex; width: max-content; margin: 0; padding: 0;
+  animation: bw-marquee 60s linear infinite;
 }
-.bw-clone { display: none; }
+.bw-track:hover, .bw-track:focus-within { animation-play-state: paused; }
+.bw-set {
+  display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 32px;
+  margin: 0; padding: 0 32px 0 0; list-style: none;
+}
 .bw-badge {
   display: block; flex-shrink: 0; margin: 0; padding: 0; border: 0; text-decoration: none;
   transition: transform 0.2s;
@@ -91,16 +95,8 @@ export const BADGE_WALL_CSS = `
   max-width: none; object-fit: contain; margin: 0 !important; border: 0;
 }
 .bw-badge:focus-visible { outline: 2px solid var(--bw-focus); outline-offset: 2px; border-radius: 4px; }
-@keyframes bw-marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
-.bw-scroll .bw-track { display: flex; width: max-content; animation: bw-marquee 60s linear infinite; }
-.bw-scroll .bw-track:hover { animation-play-state: paused; }
-.bw-scroll .bw-set { flex-wrap: nowrap; justify-content: flex-start; padding-right: 32px; }
-.bw-scroll .bw-clone { display: flex; }
-.bw-measure .bw-set { flex-wrap: nowrap; }
-.bw-measure .bw-track { width: max-content; }
 @media (min-width: 768px) {
-  .bw-set { gap: 16px 48px; }
-  .bw-scroll .bw-set { padding-right: 48px; }
+  .bw-set { gap: 48px; padding-right: 48px; }
 }
 .bw-attribution { margin: 16px 0 0; font-size: 12px; color: var(--bw-muted); }
 .bw-attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
@@ -128,11 +124,9 @@ export const BADGE_WALL_CSS = `
   transition: grid-template-rows 0.25s ease, visibility 0s linear 0s;
 }
 .bw-panel-inner { min-height: 0; overflow: hidden; }
-.bw-panel-inner .bw-set { padding: 16px 0 4px; }
+.bw-panel-inner .bw-viewport { padding: 16px 0 4px; }
+.bw-accordion:not(.bw-open) .bw-track { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
-  .bw-scroll .bw-track, .bw-track { animation: none !important; }
-  .bw-scroll .bw-clone { display: none !important; }
-  .bw-scroll .bw-set { flex-wrap: wrap; justify-content: center; padding-right: 0; }
   .bw-panel, .bw-open .bw-panel, .bw-chevron, .bw-badge { transition: none !important; }
 }
 `
@@ -145,7 +139,7 @@ function themeStyle(theme: BadgeWallThemeName): string {
 }
 
 /** The badge's own <img> width/height only as layout hints; CSS fixes the height at 40px. */
-function badgeLink(badge: BadgeWallPayloadBadge, clone: boolean): string {
+function badgeLink(badge: BadgeWallPayloadBadge, hidden: boolean): string {
   const href = safeUrl(badge.href)
   const src = safeUrl(badge.src)
   if (!href || !src) return ""
@@ -155,17 +149,51 @@ function badgeLink(badge: BadgeWallPayloadBadge, clone: boolean): string {
       : ""
   return (
     `<a class="bw-badge" href="${escapeHtml(href)}" target="_blank" rel="${escapeHtml(safeRel(badge.rel))}"` +
-    `${clone ? ' tabindex="-1"' : ""} title="${escapeHtml(badge.name)}">` +
+    `${hidden ? ' tabindex="-1" aria-hidden="true"' : ""} title="${escapeHtml(badge.name)}">` +
     `<img src="${escapeHtml(src)}" alt="${escapeHtml(badge.alt)}"${size} loading="lazy" decoding="async" />` +
     `</a>`
   )
 }
 
-function badgeSet(badges: BadgeWallPayloadBadge[], clone: boolean): string {
-  const links = badges.map((badge) => badgeLink(badge, clone)).join("")
+/** Badges per marquee set at least: short walls repeat their list so a set fills the viewport. */
+export const MARQUEE_MIN_ITEMS = 12
+/** Seconds per badge, the footer's speed (about 46 badges per set in 60s). */
+export const MARQUEE_SECONDS_PER_ITEM = 1.3
+export const MARQUEE_MIN_SECONDS = 20
+
+export function marqueeCopies(badgeCount: number): number {
+  return badgeCount > 0 ? Math.ceil(MARQUEE_MIN_ITEMS / badgeCount) : 0
+}
+
+export function marqueeDurationSeconds(badgeCount: number): number {
+  const itemsPerSet = badgeCount * marqueeCopies(badgeCount)
+  return Math.max(MARQUEE_MIN_SECONDS, Math.round(itemsPerSet * MARQUEE_SECONDS_PER_ITEM))
+}
+
+/**
+ * One marquee set: the badge list repeated `copies` times. Only the first copy of the main set is
+ * exposed (focusable, announced); every repeat and the whole clone set are aria-hidden and out of
+ * the tab order, so each badge is announced and tabbable exactly once.
+ */
+function badgeSet(badges: BadgeWallPayloadBadge[], copies: number, clone: boolean): string {
+  let links = ""
+  for (let copy = 0; copy < copies; copy++) {
+    links += badges.map((badge) => badgeLink(badge, clone || copy > 0)).join("")
+  }
   return clone
     ? `<div class="bw-set bw-clone" aria-hidden="true">${links}</div>`
     : `<div class="bw-set">${links}</div>`
+}
+
+/** Single-row marquee: a set plus an identical clone, shifted by -50% for a seamless loop. */
+function marquee(badges: BadgeWallPayloadBadge[]): string {
+  const copies = marqueeCopies(badges.length)
+  return (
+    `<div class="bw-viewport"><div class="bw-track">` +
+    badgeSet(badges, copies, false) +
+    badgeSet(badges, copies, true) +
+    `</div></div>`
+  )
 }
 
 function attributionLine(payload: BadgeWallPayload): string {
@@ -196,8 +224,13 @@ export function renderBadgeWall(
   options: RenderOptions = {},
 ): { css: string; html: string } {
   const theme: BadgeWallThemeName = payload.theme === "dark" ? "dark" : "light"
-  const css = `${themeStyle(theme)}\n${BADGE_WALL_CSS}`
   const badges = payload.badges.filter((badge) => safeUrl(badge.href) && safeUrl(badge.src))
+  // Per-wall speed in the CSS (not a style attribute, which host-page CSPs may block)
+  const css =
+    `${themeStyle(theme)}\n${BADGE_WALL_CSS}` +
+    (badges.length > 0
+      ? `.bw-track { animation-duration: ${marqueeDurationSeconds(badges.length)}s; }\n`
+      : "")
   const attribution = attributionLine(payload)
 
   const body =
@@ -215,7 +248,7 @@ export function renderBadgeWall(
       `<button type="button" class="bw-toggle" id="${prefix}-toggle" aria-expanded="false" aria-controls="${prefix}-panel">` +
       `<span>Featured Badges</span>${CHEVRON}</button></div>` +
       `<div class="bw-panel" id="${prefix}-panel" role="region" aria-labelledby="${prefix}-toggle">` +
-      `<div class="bw-panel-inner">${body ?? badgeSet(badges, false)}</div></div>` +
+      `<div class="bw-panel-inner">${body ?? marquee(badges)}</div></div>` +
       attribution +
       `</div>`
     return { css, html }
@@ -224,9 +257,7 @@ export function renderBadgeWall(
   const html =
     `<div class="bw bw-fixed bw-root-${theme}" data-template="fixed">` +
     `<p class="bw-title">Featured On</p>` +
-    `<div class="bw-viewport"><div class="bw-track">` +
-    (body ?? `${badgeSet(badges, false)}${badgeSet(badges, true)}`) +
-    `</div></div>` +
+    (body ?? marquee(badges)) +
     attribution +
     `</div>`
   return { css, html }

@@ -1,6 +1,6 @@
 # @prolaunch/badge-wall
 
-Show the "Featured on ..." badges of every directory that lists your product, in one block in your site footer. You manage the wall on [prolaunch.net/dashboard/badge-wall](https://prolaunch.net/dashboard/badge-wall). Badges, template and theme update without a redeploy.
+Show the "Featured on …" badges of every directory that lists your product, in one block in your site footer. You manage the wall on [prolaunch.net/dashboard/badge-wall](https://prolaunch.net/dashboard/badge-wall). Badges, template and theme update without a redeploy.
 
 - Two templates: **Fixed** (always visible) and **Accordion** (a collapsible "Featured badges" block). Each comes in **light** and **dark**.
 - Rendered inside a Shadow DOM: your CSS can't break the wall, and the wall's CSS can't leak into your site.

@@ -1,4 +1,4 @@
-// Client-side behaviors for a rendered badge wall: the accordion toggle and the marquee switch.
+// Client-side behaviors for a rendered badge wall: the accordion toggle (the marquee is pure CSS).
 // Framework-free; `root` is a ShadowRoot, a Document or any element containing a rendered wall.
 
 type Root = Document | ShadowRoot | Element
@@ -41,66 +41,7 @@ export function attachAccordion(root: Root, { onToggle }: AccordionOptions = {})
   return () => cleanups.forEach((cleanup) => cleanup())
 }
 
-function prefersReducedMotion(view: (Window & typeof globalThis) | null): boolean {
-  try {
-    return Boolean(view?.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
-  } catch {
-    return false
-  }
-}
-
-/**
- * Fixed template: scroll like the footer marquee only when the badges overflow a single row and
- * the visitor has not asked for reduced motion; otherwise keep the static wrapping row.
- * Re-evaluated on resize and as badge images load. Returns a cleanup function.
- */
-export function attachMarquee(root: Root): () => void {
-  const cleanups: (() => void)[] = []
-
-  root.querySelectorAll<HTMLElement>(".bw-fixed").forEach((wall) => {
-    const viewport = wall.querySelector<HTMLElement>(".bw-viewport")
-    const firstSet = wall.querySelector<HTMLElement>(".bw-set:not(.bw-clone)")
-    if (!viewport || !firstSet) return
-    const view = wall.ownerDocument.defaultView
-
-    const update = () => {
-      if (prefersReducedMotion(view)) {
-        wall.classList.remove("bw-scroll")
-        return
-      }
-      // Measure the set laid out as a single row
-      wall.classList.remove("bw-scroll")
-      wall.classList.add("bw-measure")
-      const overflows = firstSet.scrollWidth > viewport.clientWidth + 1
-      wall.classList.remove("bw-measure")
-      wall.classList.toggle("bw-scroll", overflows)
-    }
-
-    update()
-
-    const images = Array.from(firstSet.querySelectorAll("img"))
-    images.forEach((img) => img.addEventListener("load", update))
-    cleanups.push(() => images.forEach((img) => img.removeEventListener("load", update)))
-
-    if (view && "ResizeObserver" in view) {
-      const observer = new view.ResizeObserver(() => update())
-      observer.observe(viewport)
-      cleanups.push(() => observer.disconnect())
-    }
-
-    const motion = view?.matchMedia?.("(prefers-reduced-motion: reduce)")
-    motion?.addEventListener?.("change", update)
-    cleanups.push(() => motion?.removeEventListener?.("change", update))
-  })
-
-  return () => cleanups.forEach((cleanup) => cleanup())
-}
-
+/** The marquee is pure CSS (render.ts); only the accordion needs wiring. */
 export function attachBehaviors(root: Root, options: AccordionOptions = {}): () => void {
-  const a = attachAccordion(root, options)
-  const m = attachMarquee(root)
-  return () => {
-    a()
-    m()
-  }
+  return attachAccordion(root, options)
 }
