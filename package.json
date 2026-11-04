@@ -1,6 +1,6 @@
 {
   "name": "@prolaunch/badge-wall",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pro Launch badge wall: show your 'Featured on' directory badges in your site footer.",
   "keywords": ["prolaunch", "badges", "badge-wall", "nextjs", "react", "footer"],
   "homepage": "https://prolaunch.net/badges",
